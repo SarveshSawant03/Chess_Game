@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game with AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Chess Game</h1>
+        
+        <div class="game-container">
+            <div class="board-container">
+                <div id="board"></div>
+                <div id="evaluation-bar" class="evaluation-bar">
+                    <div id="evaluation-fill"></div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div class="game-info">
+                    <div id="status" class="status">Make your move</div>
+                    <div id="thinking" class="thinking hidden">AI is thinking...</div>
+                </div>
+                
+                <div class="buttons">
+                    <button id="new-game">New Game</button>
+                    <button id="undo-move">Undo Move</button>
+                </div>
+                
+                <div class="mode-selection">
+                    <h3>Game Mode</h3>
+                    <label>
+                        <input type="radio" name="gameMode" value="ai" checked> vs Computer
+                    </label>
+                    <label>
+                        <input type="radio" name="gameMode" value="human"> vs Human
+                    </label>
+                </div>
+                
+                <div id="ai-settings" class="ai-settings">
+                    <h3>AI Settings</h3>
+                    <div class="setting">
+                        <label for="elo-rating">ELO Rating: <span id="elo-value">1200</span></label>
+                        <input type="range" id="elo-rating" min="800" max="2000" step="100" value="1200">
+                    </div>
+                    <div class="setting">
+                        <label>Play as:</label>
+                        <label>
+                            <input type="radio" name="playerColor" value="white" checked> White
+                        </label>
+                        <label>
+                            <input type="radio" name="playerColor" value="black"> Black
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    
+    <!-- Game scripts -->
+    <script src="js/elo.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
