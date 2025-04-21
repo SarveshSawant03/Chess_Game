@@ -5,19 +5,80 @@ let ai = new ChessAI(1200);
 let playerColor = 'w';
 let gameMode = 'ai';
 let userMoving = false;
+let selectedPiece = null;
+let highlightedSquares = [];
+
+// This function adds a highlight class to show possible moves
+function highlightPossibleMoves(square) {
+    // Clear any existing highlights
+    clearHighlights();
+    
+    // If no square is selected, just return
+    if (!square) return;
+    
+    // Get all legal moves from the current position
+    const moves = game.moves({
+        square: square,
+        verbose: true // This gives us detailed move information including target squares
+    });
+    
+    // Highlight the selected square
+    $(`[data-square="${square}"]`).addClass('highlight-selected');
+    
+    // Highlight all possible destination squares
+    for (let move of moves) {
+        const targetSquare = move.to;
+        
+        // Add different highlight classes based on whether it's a capture move
+        if (move.flags.includes('c') || move.flags.includes('e')) {
+            // Capture move (including en passant)
+            $(`[data-square="${targetSquare}"]`).addClass('highlight-capture');
+        } else if (move.flags.includes('k') || move.flags.includes('q')) {
+            // Castle move
+            $(`[data-square="${targetSquare}"]`).addClass('highlight-castle');
+        } else {
+            // Regular move
+            $(`[data-square="${targetSquare}"]`).addClass('highlight-move');
+        }
+        
+        // Keep track of highlighted squares
+        highlightedSquares.push(targetSquare);
+    }
+    
+    // Remember the selected piece
+    selectedPiece = square;
+}
+
+// Function to clear all highlights
+function clearHighlights() {
+    // Remove highlight from previously selected square
+    if (selectedPiece) {
+        $(`[data-square="${selectedPiece}"]`).removeClass('highlight-selected');
+    }
+    
+    // Remove highlights from all possible move squares
+    $('.highlight-move, .highlight-capture, .highlight-castle').removeClass('highlight-move highlight-capture highlight-castle');
+    
+    // Reset variables
+    selectedPiece = null;
+    highlightedSquares = [];
+}
 
 // Initialize the chessboard
 function initializeBoard() {
     const config = {
         draggable: true,
         position: 'start',
-        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png', 
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png', // Use this CDN link
         onDragStart: onDragStart,
         onDrop: onDrop,
         onSnapEnd: onSnapEnd
     };
     
     board = Chessboard('board', config);
+    
+    // Set up click handlers for squares
+    setupClickHandlers();
     
     // If playing as black against AI, make AI move first
     if (gameMode === 'ai' && playerColor === 'b') {
@@ -61,11 +122,16 @@ function onDragStart(source, piece, position, orientation) {
         return false;
     }
     
+    // Highlight possible moves for this piece
+    highlightPossibleMoves(source);
+    
     return true;
 }
-
 // Handle piece drop on board
 function onDrop(source, target) {
+    // Clear all highlights
+    clearHighlights();
+    
     // Check if the move is legal
     const move = game.move({
         from: source,
@@ -83,6 +149,66 @@ function onDrop(source, target) {
         setTimeout(makeAiMove, 250);
     }
 }
+function setupClickHandlers() {
+    $('#board .square-55d63').on('click', function() {
+        // If the game is over or it's not the player's turn, do nothing
+        if (game.game_over() || userMoving || (gameMode === 'ai' && game.turn() !== playerColor)) {
+            return;
+        }
+        
+        const square = $(this).data('square');
+        
+        // If no piece is currently selected
+        if (!selectedPiece) {
+            // Check if the clicked square has a piece of the current player's color
+            const piece = game.get(square);
+            if (piece && piece.color === game.turn()) {
+                // Select this piece and show possible moves
+                highlightPossibleMoves(square);
+            }
+        } 
+        // If a piece is already selected
+        else {
+            // If clicking the same square, deselect it
+            if (square === selectedPiece) {
+                clearHighlights();
+            } 
+            // If clicking a different square
+            else {
+                // Check if it's a valid target square for the selected piece
+                if (highlightedSquares.includes(square)) {
+                    // Make the move
+                    const move = game.move({
+                        from: selectedPiece,
+                        to: square,
+                        promotion: 'q' // Auto-promote to queen for simplicity
+                    });
+                    
+                    // Update the board
+                    board.position(game.fen());
+                    updateStatus();
+                    
+                    // Clear highlights
+                    clearHighlights();
+                    
+                    // If playing against AI, make AI move after player moves
+                    if (gameMode === 'ai' && game.turn() !== playerColor && !game.game_over()) {
+                        setTimeout(makeAiMove, 250);
+                    }
+                } 
+                // If clicking another piece of the same color, select that piece instead
+                else {
+                    const piece = game.get(square);
+                    if (piece && piece.color === game.turn()) {
+                        highlightPossibleMoves(square);
+                    } else {
+                        clearHighlights();
+                    }
+                }
+            }
+        }
+    });
+}
 
 // Handle board position update after drop
 function onSnapEnd() {
@@ -92,6 +218,9 @@ function onSnapEnd() {
 // Make AI move
 function makeAiMove() {
     if (game.game_over()) return;
+    
+    // Clear any highlights
+    clearHighlights();
     
     $('#thinking').removeClass('hidden');
     userMoving = true;
@@ -109,6 +238,12 @@ function makeAiMove() {
         userMoving = false;
     }, 500);
 }
+
+// Add a new function to handle window resize events to reapply square handlers
+$(window).resize(function() {
+    // Chessboard might rebuild the DOM on resize, so we need to reattach handlers
+    setTimeout(setupClickHandlers, 300);
+});
 
 // Update game status display
 function updateStatus() {
