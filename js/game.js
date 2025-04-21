@@ -11,6 +11,7 @@ function initializeBoard() {
     const config = {
         draggable: true,
         position: 'start',
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png', 
         onDragStart: onDragStart,
         onDrop: onDrop,
         onSnapEnd: onSnapEnd
