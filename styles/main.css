@@ -63,7 +63,7 @@ h1 {
 .evaluation-bar {
     width: 20px;
     height: 400px;
-    background-color: #eee;
+    background-color: #000000;
     position: absolute;
     right: -30px;
     top: 0;
@@ -74,7 +74,7 @@ h1 {
 #evaluation-fill {
     width: 100%;
     height: 50%;
-    background-color: #333;
+    background-color: #ffffff;
     position: absolute;
     bottom: 0;
     transition: height 0.3s ease;
