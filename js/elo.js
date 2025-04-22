@@ -20,12 +20,16 @@ const Elo = {
     },
     
     // Map ELO rating to search depth for AI
-    getSearchDepthFromElo: function(elo) {
-        if (elo < 1000) return 1;
-        if (elo < 1200) return 2;
-        if (elo < 1400) return 2;
-        if (elo < 1600) return 3;
-        if (elo < 1800) return 3;
-        return 4;
-    }
+    // More granular search depth mapping
+getSearchDepthFromElo: function(elo) {
+    // Base depth starts at 1
+    let depth = 1;
+    
+    // Every 400 ELO points add one depth level
+    depth += Math.floor((elo - 800) / 400);
+    
+    // Cap at reasonable maximum
+    return Math.min(depth, 5);
+}
+
 };
