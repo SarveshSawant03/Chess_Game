@@ -86,6 +86,16 @@ class ChessAI {
     
     // Make the best move for a given position
     makeMove(game) {
+        // Try to use opening book first
+        if (game.history().length < this.getOpeningBookDepth()) {
+            const bookMove = this.getOpeningBookMove(game);
+            if (bookMove) {
+                game.move(bookMove);
+                return bookMove;
+            }
+        }
+        
+        // Fall back to search if no book move
         const depth = this.searchDepth;
         const bestMove = this.findBestMove(game, depth);
         
@@ -97,102 +107,146 @@ class ChessAI {
         return null;
     }
     
-    // Find the best move using minimax with alpha-beta pruning
-    findBestMove(game, depth) {
-        let bestMove = null;
-        let bestValue = -Infinity;
-        let alpha = -Infinity;
-        const beta = Infinity;
-        
-        // Get all possible moves
-        const possibleMoves = game.moves();
-        
-        // Sort moves to improve alpha-beta pruning (captures first)
-        possibleMoves.sort((a, b) => {
-            if (a.includes('x') && !b.includes('x')) return -1;
-            if (!a.includes('x') && b.includes('x')) return 1;
-            return 0;
-        });
-        
-        // Try each move and find the best one
-        for (let i = 0; i < possibleMoves.length; i++) {
-            const move = possibleMoves[i];
-            
-            // Make the move
-            game.move(move);
-            
-            // Calculate value using minimax
-            const value = this.minimax(game, depth - 1, alpha, beta, false);
-            
-            // Undo the move
-            game.undo();
-            
-            // Update best move if better value found
-            if (value > bestValue) {
-                bestValue = value;
-                bestMove = move;
-            }
-            
-            // Update alpha
-            alpha = Math.max(alpha, bestValue);
-        }
-        
-        return bestMove;
+    // Higher ELO = deeper opening book knowledge
+    getOpeningBookDepth() {
+        if (this.elo < 1200) return 3;  // Beginners know only the first 3 moves
+        if (this.elo < 1600 && this.elo >= 1200) return 4;  // Intermediate players know 6 moves deep
+        if (this.elo < 2000 && this.elo >=1600) return 5; // Advanced players know 10 moves deep
+        return 6;                      // Experts know 15 moves deep
     }
     
-    // Minimax algorithm with alpha-beta pruning
-    minimax(game, depth, alpha, beta, isMaximizingPlayer) {
-        // Base case: evaluation at leaf node or game over
-        if (depth === 0 || game.game_over()) {
-            return this.evaluateBoard(game);
+    // Find the best move using minimax with alpha-beta pruning
+    // Update the findBestMove method in AI class
+findBestMove(game, depth) {
+    let bestMove = null;
+    let bestValue = -Infinity;
+    let alpha = -Infinity;
+    const beta = Infinity;
+    
+    // Get all possible moves
+    const possibleMoves = game.moves();
+    
+    // Early exit if no moves
+    if (possibleMoves.length === 0) return null;
+    
+    // If only one move is available, return it immediately
+    if (possibleMoves.length === 1) return possibleMoves[0];
+    
+    // Sort moves to improve alpha-beta pruning (captures first)
+    possibleMoves.sort((a, b) => {
+        // Prioritize captures
+        const aCapture = a.includes('x');
+        const bCapture = b.includes('x');
+        
+        if (aCapture && !bCapture) return -1;
+        if (!aCapture && bCapture) return 1;
+        
+        // Prioritize checks
+        const aCheck = a.includes('+');
+        const bCheck = b.includes('+');
+        
+        if (aCheck && !bCheck) return -1;
+        if (!aCheck && bCheck) return 1;
+        
+        // Prioritize promotions
+        const aPromotion = a.includes('=');
+        const bPromotion = b.includes('=');
+        
+        if (aPromotion && !bPromotion) return -1;
+        if (!aPromotion && bPromotion) return 1;
+        
+        return 0;
+    });
+    
+    // Try each move and find the best one
+    for (let i = 0; i < possibleMoves.length; i++) {
+        const move = possibleMoves[i];
+        
+        // Make the move
+        game.move(move);
+        
+        // Calculate value using minimax
+        const value = this.minimax(game, depth - 1, alpha, beta, false);
+        
+        // Undo the move
+        game.undo();
+        
+        // Update best move if better value found
+        if (value > bestValue) {
+            bestValue = value;
+            bestMove = move;
         }
         
-        // Get all possible moves
-        const possibleMoves = game.moves();
-        
-        // Sort moves to improve alpha-beta pruning (captures first)
+        // Update alpha
+        alpha = Math.max(alpha, bestValue);
+    }
+    
+    return bestMove;
+}
+
+// Optimize the minimax method with faster pruning
+minimax(game, depth, alpha, beta, isMaximizingPlayer) {
+    // Immediate returns for performance
+    if (depth === 0) return this.evaluateBoard(game);
+    if (game.game_over()) {
+        if (game.in_draw()) return 0;
+        // If checkmate, return big negative/positive score based on who's winning
+        return game.turn() === 'w' ? -10000 : 10000;
+    }
+    
+    // Get all possible moves
+    const possibleMoves = game.moves();
+    
+    // Early termination for performance
+    if (possibleMoves.length === 0) return this.evaluateBoard(game);
+    
+    // Sorting moves improves alpha-beta pruning effectiveness
+    if (depth >= 2) {
+        // Only sort for deeper searches (sorting has overhead)
         possibleMoves.sort((a, b) => {
             if (a.includes('x') && !b.includes('x')) return -1;
             if (!a.includes('x') && b.includes('x')) return 1;
             return 0;
         });
-        
-        if (isMaximizingPlayer) {
-            let bestValue = -Infinity;
-            
-            // Try each move
-            for (let i = 0; i < possibleMoves.length; i++) {
-                game.move(possibleMoves[i]);
-                bestValue = Math.max(bestValue, this.minimax(game, depth - 1, alpha, beta, false));
-                game.undo();
-                
-                // Alpha-beta pruning
-                alpha = Math.max(alpha, bestValue);
-                if (beta <= alpha) {
-                    break;
-                }
-            }
-            
-            return bestValue;
-        } else {
-            let bestValue = Infinity;
-            
-            // Try each move
-            for (let i = 0; i < possibleMoves.length; i++) {
-                game.move(possibleMoves[i]);
-                bestValue = Math.min(bestValue, this.minimax(game, depth - 1, alpha, beta, true));
-                game.undo();
-                
-                // Alpha-beta pruning
-                beta = Math.min(beta, bestValue);
-                if (beta <= alpha) {
-                    break;
-                }
-            }
-            
-            return bestValue;
-        }
     }
+    
+    if (isMaximizingPlayer) {
+        let bestValue = -Infinity;
+        
+        // Try each move
+        for (let i = 0; i < possibleMoves.length; i++) {
+            game.move(possibleMoves[i]);
+            bestValue = Math.max(bestValue, this.minimax(game, depth - 1, alpha, beta, false));
+            game.undo();
+            
+            // Alpha-beta pruning
+            alpha = Math.max(alpha, bestValue);
+            if (beta <= alpha) {
+                break; // Beta cutoff
+            }
+        }
+        
+        return bestValue;
+    } else {
+        let bestValue = Infinity;
+        
+        // Try each move
+        for (let i = 0; i < possibleMoves.length; i++) {
+            game.move(possibleMoves[i]);
+            bestValue = Math.min(bestValue, this.minimax(game, depth - 1, alpha, beta, true));
+            game.undo();
+            
+            // Alpha-beta pruning
+            beta = Math.min(beta, bestValue);
+            if (beta <= alpha) {
+                break; // Alpha cutoff
+            }
+        }
+        
+        return bestValue;
+    }
+}
+
     
     // Evaluate the board position
     evaluateBoard(game) {
@@ -215,6 +269,18 @@ class ChessAI {
                     totalEvaluation += this.getPieceValue(piece, i, j);
                 }
             }
+        }
+        
+        // Add randomness based on ELO (lower ELO = more randomness)
+        if (this.elo < 2000) {
+            // Calculate randomness factor (more at lower ELO)
+            const randomFactor = Math.max(0, (2000 - this.elo) / 1000); // 0.0 to 1.2
+            
+            // Add random noise to evaluation
+            const maxNoise = 50 * randomFactor; // Maximum noise (higher for lower ELO)
+            const noise = (Math.random() * 2 - 1) * maxNoise; // Random value between -maxNoise and +maxNoise
+            
+            totalEvaluation += noise;
         }
         
         return totalEvaluation;
