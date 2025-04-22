@@ -7,6 +7,8 @@ let gameMode = 'ai';
 let userMoving = false;
 let selectedPiece = null;
 let highlightedSquares = [];
+let aiThinkingDots = 0;
+let aiThinkingAnimation = null;
 
 // This function adds a highlight class to show possible moves
 function highlightPossibleMoves(square) {
@@ -216,6 +218,13 @@ function onSnapEnd() {
 }
 
 // Make AI move
+function animateThinking() {
+    aiThinkingDots = (aiThinkingDots % 3) + 1;
+    const dots = '.'.repeat(aiThinkingDots);
+    $('#thinking').text(`AI is thinking${dots}`);
+}
+
+// Update the makeAiMove function
 function makeAiMove() {
     if (game.game_over()) return;
     
@@ -225,18 +234,65 @@ function makeAiMove() {
     $('#thinking').removeClass('hidden');
     userMoving = true;
     
+    // Start thinking animation
+    aiThinkingDots = 0;
+    aiThinkingAnimation = setInterval(animateThinking, 300);
+    
+    // Set a timeout for AI thinking
+    const aiTimeout = setTimeout(() => {
+        console.log("AI thinking timeout - making fallback move");
+        clearInterval(aiThinkingAnimation);
+        userMoving = false;
+        $('#thinking').addClass('hidden');
+        
+        // Make a simple fallback move
+        const moves = game.moves();
+        if (moves.length > 0) {
+            const randomIndex = Math.floor(Math.random() * moves.length);
+            const move = moves[randomIndex];
+            game.move(move);
+            board.position(game.fen());
+            updateStatus();
+        }
+    }, 5000); // 5 seconds timeout
+    
     // Use setTimeout to allow UI to update before AI calculation
     setTimeout(() => {
-        // Make AI move
-        const move = ai.makeMove(game);
-        
-        // Update board
-        board.position(game.fen());
-        updateStatus();
-        
-        $('#thinking').addClass('hidden');
-        userMoving = false;
-    }, 500);
+        try {
+            // Make AI move
+            const move = ai.makeMove(game);
+            
+            // Update board
+            board.position(game.fen());
+            updateStatus();
+            
+            // Clear the animations and timeouts
+            clearInterval(aiThinkingAnimation);
+            clearTimeout(aiTimeout);
+            
+            $('#thinking').addClass('hidden');
+            userMoving = false;
+        } catch (error) {
+            console.error("Error in AI move calculation:", error);
+            
+            // Clear the animations and timeouts
+            clearInterval(aiThinkingAnimation);
+            clearTimeout(aiTimeout);
+            
+            // Make a fallback move
+            const moves = game.moves();
+            if (moves.length > 0) {
+                const randomIndex = Math.floor(Math.random() * moves.length);
+                const move = moves[randomIndex];
+                game.move(move);
+                board.position(game.fen());
+                updateStatus();
+            }
+            
+            $('#thinking').addClass('hidden');
+            userMoving = false;
+        }
+    }, 100);
 }
 
 // Add a new function to handle window resize events to reapply square handlers
